@@ -1,16 +1,21 @@
 package com.reader.mysunnyweather.ui.weather
 
+import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.ViewModelProvider
 import com.reader.mysunnyweather.R
+import com.reader.mysunnyweather.logic.Repository.refreshWeather
 import com.reader.mysunnyweather.logic.model.Weather
 import com.reader.mysunnyweather.logic.model.getSky
 import kotlinx.android.synthetic.main.activity_weather.*
@@ -25,13 +30,30 @@ class WeatherActivity : AppCompatActivity() {
     val viewModel by lazy { ViewModelProvider(this).get(WeatherViewModel::class.java) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        initWindow()
+        setContentView(R.layout.activity_weather)
+        initData()
+        swipeRefresh.setColorSchemeResources(R.color.colorPrimary)
+        refreshWeather()
+        initObserver()
+        initListener()
+    }
+
+    /**
+     * 初适配导航栏
+     */
+    private fun initWindow() {
         val decorView = window.decorView
         decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
                     View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         window.statusBarColor = Color.TRANSPARENT
-        setContentView(R.layout.activity_weather)
+    }
 
+    /**
+     * 获取地址信息
+     */
+    private fun initData() {
         if (viewModel.locationLng.isEmpty()) {
             viewModel.locationLng = intent.getStringExtra("location_lng") ?: ""
         }
@@ -41,6 +63,9 @@ class WeatherActivity : AppCompatActivity() {
         if (viewModel.placeName.isEmpty()) {
             viewModel.placeName = intent.getStringExtra("place_name") ?: ""
         }
+    }
+
+    private fun initObserver() {
         viewModel.weatherLiveData.observe(this) { result ->
             val weather = result.getOrNull()
             if (weather != null) {
@@ -51,14 +76,31 @@ class WeatherActivity : AppCompatActivity() {
             }
             swipeRefresh.isRefreshing = false
         }
-        swipeRefresh.setColorSchemeResources(R.color.colorPrimary)
-        refreshWeather()
+    }
+
+    private fun initListener() {
         swipeRefresh.setOnRefreshListener {
             refreshWeather()
         }
+        navBtn.setOnClickListener {
+            drawLayout.openDrawer(GravityCompat.START)
+        }
+        drawLayout.addDrawerListener(object : DrawerLayout.DrawerListener {
+            override fun onDrawerSlide(drawerView: View, slideOffset: Float) {}
+            override fun onDrawerOpened(drawerView: View) {}
+            override fun onDrawerClosed(drawerView: View) {
+                val manager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                manager.hideSoftInputFromWindow(
+                    drawerView.windowToken,
+                    InputMethodManager.HIDE_NOT_ALWAYS
+                )
+            }
+
+            override fun onDrawerStateChanged(newState: Int) {}
+        })
     }
 
-    private fun refreshWeather() {
+     fun refreshWeather() {
         viewModel.refreshWeather(viewModel.locationLng, viewModel.locationLat)
         swipeRefresh.isRefreshing = true
     }
